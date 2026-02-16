@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AVL vs BST Comparison Visualizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .canvas-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+            position: relative;
+            height: 550px;
+        }
+        svg { width: 100%; height: 100%; }
+        
+        .node-circle { 
+            fill: #fff; 
+            stroke-width: 2px; 
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .avl-stroke { stroke: #2c3e50; }
+        .bst-stroke { stroke: #34495e; }
+        
+        .node-text { 
+            font-size: 13px; font-weight: bold; fill: #333; 
+            text-anchor: middle; dominant-baseline: middle; pointer-events: none;
+        }
+        .link { stroke: #bdc3c7; stroke-width: 2px; transition: all 0.6s ease; }
+        
+        .highlight-search { stroke: #f1c40f !important; stroke-width: 4px !important; fill: #fcf3cf !important; }
+        .highlight-found { stroke: #2ecc71 !important; stroke-width: 4px !important; fill: #d5f5e3 !important; }
+        
+        #log-panel {
+            height: 150px; overflow-y: auto; font-size: 0.85rem;
+            background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+        }
+        .log-entry { border-bottom: 1px solid #eee; padding: 4px 0; }
+        .log-rot { color: #e74c3c; font-weight: bold; }
+        
+        .control-header { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="p-4">
+<div class="container-fluid">
+    <div class="control-header">
+        <div class="row align-items-center">
+            <div class="col-md-2">
+                <a href="../index.html" class="btn btn-outline-secondary btn-sm">&larr; Dashboard</a>
+            </div>
+            <div class="col-md-6">
+                <h4 class="fw-bold m-0 text-primary">Ağaç Yapıları: Bağımsız Kontrol Paneli</h4>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="input-group">
+                    <span class="input-group-text bg-primary text-white">Değer</span>
+                    <input type="number" id="nodeValue" class="form-control" placeholder="Sayı girin">
+                    <button class="btn btn-danger" onclick="mainManager.clearAll()">Sıfırla</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body p-3 bg-dark text-white rounded-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="m-0 fw-bold">AVL Tree</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-primary" onclick="mainManager.op('avl', 'insert')">Ekle</button>
+                            <button class="btn btn-warning" onclick="mainManager.op('avl', 'search')">Ara</button>
+                            <button class="btn btn-outline-light" onclick="mainManager.op('avl', 'delete')">Sil</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="canvas-card">
+                    <svg id="avl-canvas"></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body p-3 bg-secondary text-white rounded-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="m-0 fw-bold">Standard BST</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-info text-white" onclick="mainManager.op('bst', 'insert')">Ekle</button>
+                            <button class="btn btn-warning" onclick="mainManager.op('bst', 'search')">Ara</button>
+                            <button class="btn btn-outline-light" onclick="mainManager.op('bst', 'delete')">Sil</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="canvas-card">
+                    <svg id="bst-canvas"></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-2">
+        <div class="col-12">
+            <div id="log-panel">
+                <div class="text-muted small mb-2">Sistem Logları ve Rotasyon Bilgileri:</div>
+                <div id="logs"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    class Node {
+        constructor(value) {
+            this.value = value;
+            this.left = null; this.right = null;
+            this.height = 1; this.x = 0; this.y = 0;
+        }
+    }
+
+    class AVLTree {
+        constructor() { this.root = null; }
+        height(N) { return N ? N.height : 0; }
+        getBalance(N) { return N ? this.height(N.left) - this.height(N.right) : 0; }
+        rightRotate(y) {
+            let x = y.left; let T2 = x.right;
+            x.right = y; y.left = T2;
+            y.height = Math.max(this.height(y.left), this.height(y.right)) + 1;
+            x.height = Math.max(this.height(x.left), this.height(x.right)) + 1;
+            mainManager.log(`AVL: Sağa Rotasyon (Düğüm ${y.value})`, true);
+            return x;
+        }
+        leftRotate(x) {
+            let y = x.right; let T2 = y.left;
+            y.left = x; x.right = T2;
+            x.height = Math.max(this.height(x.left), this.height(x.right)) + 1;
+            y.height = Math.max(this.height(y.left), this.height(y.right)) + 1;
+            mainManager.log(`AVL: Sola Rotasyon (Düğüm ${x.value})`, true);
+            return y;
+        }
+        insert(node, value) {
+            if (!node) return new Node(value);
+            if (value < node.value) node.left = this.insert(node.left, value);
+            else if (value > node.value) node.right = this.insert(node.right, value);
+            else return node;
+            node.height = 1 + Math.max(this.height(node.left), this.height(node.right));
+            let balance = this.getBalance(node);
+            if (balance > 1 && value < node.left.value) return this.rightRotate(node);
+            if (balance < -1 && value > node.right.value) return this.leftRotate(node);
+            if (balance > 1 && value > node.left.value) { node.left = this.leftRotate(node.left); return this.rightRotate(node); }
+            if (balance < -1 && value < node.right.value) { node.right = this.rightRotate(node.right); return this.leftRotate(node); }
+            return node;
+        }
+        delete(node, value) {
+            if (!node) return null;
+            if (value < node.value) node.left = this.delete(node.left, value);
+            else if (value > node.value) node.right = this.delete(node.right, value);
+            else {
+                if (!node.left || !node.right) node = node.left || node.right;
+                else {
+                    let temp = this.minNode(node.right);
+                    node.value = temp.value;
+                    node.right = this.delete(node.right, temp.value);
+                }
+            }
+            if (!node) return null;
+            node.height = 1 + Math.max(this.height(node.left), this.height(node.right));
+            let b = this.getBalance(node);
+            if (b > 1 && this.getBalance(node.left) >= 0) return this.rightRotate(node);
+            if (b > 1 && this.getBalance(node.left) < 0) { node.left = this.leftRotate(node.left); return this.rightRotate(node); }
+            if (b < -1 && this.getBalance(node.right) <= 0) return this.leftRotate(node);
+            if (b < -1 && this.getBalance(node.right) > 0) { node.right = this.rightRotate(node.right); return this.leftRotate(node); }
+            return node;
+        }
+        minNode(n) { while(n.left) n = n.left; return n; }
+    }
+
+    class BSTree {
+        constructor() { this.root = null; }
+        insert(node, value) {
+            if (!node) return new Node(value);
+            if (value < node.value) node.left = this.insert(node.left, value);
+            else if (value > node.value) node.right = this.insert(node.right, value);
+            return node;
+        }
+        delete(node, value) {
+            if (!node) return null;
+            if (value < node.value) node.left = this.delete(node.left, value);
+            else if (value > node.value) node.right = this.delete(node.right, value);
+            else {
+                if (!node.left) return node.right;
+                if (!node.right) return node.left;
+                let temp = this.minNode(node.right);
+                node.value = temp.value;
+                node.right = this.delete(node.right, temp.value);
+            }
+            return node;
+        }
+        minNode(n) { while(n.left) n = n.left; return n; }
+    }
+
+    const avl = new AVLTree();
+    const bst = new BSTree();
+
+    const mainManager = {
+        log: (msg, isRot = false) => {
+            const container = document.getElementById('logs');
+            container.innerHTML = `<div class="log-entry ${isRot?'log-rot':''}">> ${msg}</div>` + container.innerHTML;
+        },
+
+        op: async (type, action) => {
+            const val = parseInt(document.getElementById('nodeValue').value);
+            if (isNaN(val)) return;
+
+            const treeObj = (type === 'avl' ? avl : bst);
+            
+            if (action === 'insert') {
+                treeObj.root = treeObj.insert(treeObj.root, val);
+                mainManager.log(`${type.toUpperCase()}: ${val} eklendi.`);
+            } else if (action === 'delete') {
+                treeObj.root = treeObj.delete(treeObj.root, val);
+                mainManager.log(`${type.toUpperCase()}: ${val} silindi.`);
+            } else if (action === 'search') {
+                await mainManager.animateSearch(treeObj.root, val, type);
+                return;
+            }
+            mainManager.render(type);
+        },
+
+        animateSearch: async (root, val, prefix) => {
+            let curr = root;
+            while(curr) {
+                const el = document.getElementById(`${prefix}-node-${curr.value}`);
+                if(el) el.classList.add('highlight-search');
+                await new Promise(r => setTimeout(r, 600));
+                if(el) el.classList.remove('highlight-search');
+                if(val === curr.value) {
+                    if(el) el.classList.add('highlight-found');
+                    mainManager.log(`${prefix.toUpperCase()}: ${val} bulundu.`);
+                    setTimeout(() => el && el.classList.remove('highlight-found'), 2000);
+                    return;
+                }
+                curr = val < curr.value ? curr.left : curr.right;
+            }
+            mainManager.log(`${prefix.toUpperCase()}: ${val} bulunamadı.`);
+        },
+
+        clearAll: () => {
+            avl.root = null; bst.root = null;
+            document.getElementById('logs').innerHTML = '';
+            mainManager.render('avl'); mainManager.render('bst');
+        },
+
+        render: (type) => {
+            const svg = document.getElementById(`${type}-canvas`);
+            const root = (type === 'avl' ? avl.root : bst.root);
+            svg.innerHTML = '';
+            if (!root) return;
+
+            const width = svg.parentElement.clientWidth;
+            mainManager.calcPos(root, width / 2, 40, width / 4);
+            
+            const drawLines = (n) => {
+                if(!n) return;
+                if(n.left) mainManager.drawLine(n.x, n.y, n.left.x, n.left.y, svg);
+                if(n.right) mainManager.drawLine(n.x, n.y, n.right.x, n.right.y, svg);
+                drawLines(n.left); drawLines(n.right);
+            };
+            const drawNodes = (n) => {
+                if(!n) return;
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", n.x); c.setAttribute("cy", n.y); c.setAttribute("r", 18);
+                c.setAttribute("class", `node-circle ${type}-stroke`);
+                c.setAttribute("id", `${type}-node-${n.value}`);
+                const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                t.setAttribute("x", n.x); t.setAttribute("y", n.y);
+                t.setAttribute("class", "node-text"); t.textContent = n.value;
+                g.appendChild(c); g.appendChild(t); svg.appendChild(g);
+                drawNodes(n.left); drawNodes(n.right);
+            };
+            drawLines(root); drawNodes(root);
+        },
+
+        calcPos: (n, x, y, off) => {
+            if(!n) return;
+            n.x = x; n.y = y;
+            const nextOff = Math.max(off / 1.8, 20);
+            mainManager.calcPos(n.left, x - off, y + 65, nextOff);
+            mainManager.calcPos(n.right, x + off, y + 65, nextOff);
+        },
+
+        drawLine: (x1, y1, x2, y2, svg) => {
+            const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+            l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+            l.setAttribute("class", "link"); svg.appendChild(l);
+        }
+    };
+</script>
+</body>
+</html>

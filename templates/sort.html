@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sorting Visualizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f6fa; font-family: 'Segoe UI', sans-serif; }
+        #canvas-container { 
+            height: 400px; background: white; border-radius: 15px; 
+            display: flex; align-items: flex-end; justify-content: center; 
+            padding: 30px 20px 20px 20px; /* Üstten boşluk bırak ki sayılar sığsın */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            position: relative;
+        }
+        
+        .bar {
+            margin: 0 2px; /* Çubuklar arası boşluk */
+            background-color: #4a90e2;
+            transition: height 0.1s ease, background-color 0.1s ease;
+            border-radius: 5px 5px 0 0; /* Daha yuvarlak köşeler */
+            flex-grow: 1;
+            position: relative; /* Sayıları konumlandırmak için gerekli */
+        }
+        
+        /* Çubukların Üzerindeki Sayılar (CSS ile yapılıyor) */
+        .bar::after {
+            content: attr(data-value); /* Değeri data attribute'dan al */
+            position: absolute;
+            top: -25px; /* Çubuğun üstüne taşı */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap;
+            /* Çok fazla çubuk varsa gizlemek için bir değişken kullanacağız */
+            display: var(--label-display, block); 
+        }
+
+        /* Renk Durumları */
+        .comparing { background-color: #f1c40f !important; } /* Sarı */
+        .swapping { background-color: #e74c3c !important; }  /* Kırmızı */
+        .sorted { background-color: #2ecc71 !important; }    /* Yeşil */
+        .overwrite { background-color: #9b59b6 !important; } /* Mor */
+    </style>
+</head>
+<body class="p-4">
+
+<div class="container">
+    <a href="../index.html" class="btn btn-outline-secondary mb-3">&larr; Back to Dashboard</a>
+    
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <h2 class="fw-bold">Sorting Algorithms</h2>
+            <p id="algo-desc" class="text-muted">Algoritmayı seçin ve sıralama işlemini adım adım izleyin.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div id="status-log" class="badge bg-dark fs-6 p-2">Hazır</div>
+        </div>
+    </div>
+
+    <div class="card p-3 mb-3 shadow-sm">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+                <input type="text" id="manualInput" class="form-control" placeholder="Örn: 50, 10, 3, 95, 20 (Virgülle ayırın)">
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-dark" onclick="loadManualList()">Listeyi Yükle</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container" class="mb-4"></div>
+
+    <div class="card p-3 shadow-sm border-0">
+        <div class="row g-3 align-items-center">
+            <div class="col-auto">
+                <select id="algo-select" class="form-select">
+                    <option value="bubble">Bubble Sort</option>
+                    <option value="selection">Selection Sort</option>
+                    <option value="insertion">Insertion Sort</option>
+                    <option value="quick">Quick Sort</option>
+                    <option value="merge">Merge Sort</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" onclick="generateRandomArray()">Rastgele Liste</button>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-success" onclick="startSort()">Başlat</button>
+            </div>
+            <div class="col-auto">
+                <label class="form-label mb-0 me-2">Hız:</label>
+                <input type="range" id="speed" min="10" max="1000" value="800" class="form-range" style="width: 150px;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let array = [];
+    const container = document.getElementById('canvas-container');
+    const statusLog = document.getElementById('status-log');
+    
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const getSpeed = () => 1010 - document.getElementById('speed').value;
+
+    // --- GÖRSELLEŞTİRME FONKSİYONU (GÜNCELLENDİ) ---
+    function drawBars() {
+        container.innerHTML = '';
+        // Eğer 30'dan fazla çubuk varsa etiketleri gizle
+        container.style.setProperty('--label-display', array.length > 30 ? 'none' : 'block');
+
+        const maxVal = Math.max(...array, 100);
+
+        array.forEach(val => {
+            const bar = document.createElement('div');
+            bar.classList.add('bar');
+            // Yükseklik hesaplama (Max 350px)
+            const height = (val / maxVal) * 350; 
+            bar.style.height = `${height}px`;
+            
+            // ÖNEMLİ DEĞİŞİKLİK: Değeri 'data-value' attribute'una ekliyoruz
+            // CSS bunu okuyup çubuğun üzerinde gösterecek.
+            bar.setAttribute('data-value', val);
+            
+            container.appendChild(bar);
+        });
+    }
+
+    function generateRandomArray() {
+        array = [];
+        for(let i=0; i<20; i++) {
+            array.push(Math.floor(Math.random() * 95) + 5);
+        }
+        drawBars();
+        statusLog.innerText = "Yeni Rastgele Liste Oluşturuldu";
+    }
+
+    function loadManualList() {
+        const input = document.getElementById('manualInput').value;
+        if (!input.trim()) return alert("Lütfen sayı giriniz.");
+        const tempArray = input.split(',').map(item => parseInt(item.trim())).filter(item => !isNaN(item));
+        if (tempArray.length === 0) return alert("Geçerli sayı bulunamadı.");
+        array = tempArray;
+        drawBars();
+        statusLog.innerText = `Manuel Liste Yüklendi (${array.length} eleman)`;
+    }
+
+    async function startSort() {
+        const algo = document.getElementById('algo-select').value;
+        statusLog.innerText = `${algo.toUpperCase()} Sort Çalışıyor...`;
+        const bars = document.getElementsByClassName('bar');
+        
+        if(algo === 'bubble') await bubbleSort(bars);
+        if(algo === 'selection') await selectionSort(bars);
+        if(algo === 'insertion') await insertionSort(bars);
+        if(algo === 'quick') await quickSort(bars, 0, array.length - 1);
+        if(algo === 'merge') await mergeSort(bars, 0, array.length - 1);
+        
+        for(let k=0; k<bars.length; k++) bars[k].classList.add('sorted');
+        statusLog.innerText = "Sıralama Tamamlandı!";
+    }
+
+    
+
+    async function bubbleSort(bars) {
+        for(let i=0; i<array.length; i++) {
+            for(let j=0; j<array.length-i-1; j++) {
+                bars[j].classList.add('comparing');
+                bars[j+1].classList.add('comparing');
+                await sleep(getSpeed());
+
+                if(array[j] > array[j+1]) {
+                    bars[j].classList.add('swapping');
+                    bars[j+1].classList.add('swapping');
+                    
+                    let temp = array[j];
+                    array[j] = array[j+1];
+                    array[j+1] = temp;
+                    
+                    // Görsel ve Veri Güncelleme
+                    bars[j].style.height = bars[j+1].style.height;
+                    bars[j].setAttribute('data-value', array[j]); // GÜNCELLENDİ
+
+                    const maxVal = Math.max(...array, 100);
+                    bars[j+1].style.height = `${(array[j+1] / maxVal) * 350}px`;
+                    bars[j+1].setAttribute('data-value', array[j+1]); // GÜNCELLENDİ
+                    
+                    await sleep(getSpeed());
+                }
+                bars[j].classList.remove('comparing', 'swapping');
+                bars[j+1].classList.remove('comparing', 'swapping');
+            }
+            bars[array.length-i-1].classList.add('sorted');
+        }
+        bars[0].classList.add('sorted');
+    }
+
+    async function selectionSort(bars) {
+        for(let i=0; i<array.length; i++) {
+            let minIdx = i;
+            bars[i].classList.add('swapping'); 
+            for(let j=i+1; j<array.length; j++) {
+                bars[j].classList.add('comparing');
+                await sleep(getSpeed());
+                if(array[j] < array[minIdx]) {
+                    if(minIdx !== i) bars[minIdx].classList.remove('comparing');
+                    minIdx = j;
+                    bars[minIdx].classList.add('comparing');
+                } else {
+                    bars[j].classList.remove('comparing');
+                }
+            }
+            [array[i], array[minIdx]] = [array[minIdx], array[i]];
+            drawBars(); // Selection sort için en temizi yeniden çizmek
+            bars = document.getElementsByClassName('bar'); // Referansı yenile
+            await sleep(getSpeed());
+            bars[i].classList.add('sorted');
+        }
+    }
+
+    async function insertionSort(bars) {
+        for(let i=1; i<array.length; i++) {
+            let key = array[i];
+            let j = i - 1;
+            bars[i].classList.add('swapping');
+            while(j >= 0 && array[j] > key) {
+                bars[j].classList.add('comparing');
+                await sleep(getSpeed());
+                array[j+1] = array[j];
+                drawBars(); 
+                bars = document.getElementsByClassName('bar');
+                bars[j].classList.remove('comparing');
+                j--;
+            }
+            array[j+1] = key;
+            drawBars();
+            bars = document.getElementsByClassName('bar');
+        }
+    }
+
+    async function quickSort(bars, low, high) {
+         if (low < high) {
+            let pi = await partition(bars, low, high);
+            await quickSort(bars, low, pi - 1);
+            await quickSort(bars, pi + 1, high);
+        }
+    }
+
+    async function partition(bars, low, high) {
+        let pivot = array[high];
+        bars[high].classList.add('swapping');
+        let i = (low - 1);
+        for (let j = low; j < high; j++) {
+            bars[j].classList.add('comparing');
+            await sleep(getSpeed());
+            if (array[j] < pivot) {
+                i++;
+                [array[i], array[j]] = [array[j], array[i]];
+                drawBars();
+                bars = document.getElementsByClassName('bar');
+                bars[high].classList.add('swapping');
+            }
+            bars[j].classList.remove('comparing');
+        }
+        [array[i + 1], array[high]] = [array[high], array[i + 1]];
+        drawBars();
+        bars = document.getElementsByClassName('bar');
+        return i + 1;
+    }
+
+    async function mergeSort(bars, start, end) {
+        if (start >= end) return;
+        const mid = Math.floor((start + end) / 2);
+        await mergeSort(bars, start, mid);
+        await mergeSort(bars, mid + 1, end);
+        await merge(bars, start, mid, end);
+    }
+
+    async function merge(bars, start, mid, end) {
+        const merged = [];
+        let i = start, j = mid + 1;
+        while (i <= mid && j <= end) {
+            bars[i].classList.add('comparing');
+            bars[j].classList.add('comparing');
+            await sleep(getSpeed());
+            if (array[i] <= array[j]) merged.push(array[i++]);
+            else merged.push(array[j++]);
+        }
+        while (i <= mid) merged.push(array[i++]);
+        while (j <= end) merged.push(array[j++]);
+
+        for (let k = 0; k < merged.length; k++) {
+            const index = start + k;
+            array[index] = merged[k];
+            const bar = bars[index];
+            const maxVal = Math.max(...array, 100); 
+            bar.style.height = `${(array[index] / maxVal) * 350}px`;
+            
+            // GÜNCELLENDİ: innerText yerine setAttribute
+            bar.setAttribute('data-value', array[index]);
+            
+            bar.classList.add('overwrite');
+            await sleep(getSpeed());
+            bar.classList.remove('overwrite', 'comparing');
+        }
+    }
+
+    generateRandomArray();
+</script>
+</body>
+</html>

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gelişmiş Bağlı Liste Görselleştirici</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        #canvas-area { 
+            width: 100%; min-height: 300px; background: white; 
+            border-radius: 15px; border: 2px solid #e0e0e0;
+            overflow-x: auto; display: flex; align-items: center; padding: 40px 20px;
+        }
+
+        /* Node (Düğüm) Stilleri */
+        .node-wrapper { display: flex; align-items: center; transition: all 0.5s ease; margin-right: 5px; }
+        
+        .node {
+            width: 60px; height: 60px; border: 3px solid #34495e;
+            border-radius: 50%; /* Daire şekli */
+            display: flex; align-items: center; justify-content: center;
+            background: #ecf0f1; font-weight: bold; color: #2c3e50;
+            z-index: 2; position: relative; transition: 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Oklar (Pointers) */
+        .pointer {
+            width: 50px; height: 4px; background: #bdc3c7;
+            position: relative; margin: 0 5px; transition: 0.3s;
+        }
+
+        /* Tek Yönlü Ok Ucu */
+        .pointer-right::after {
+            content: ''; position: absolute; right: -8px; top: -6px;
+            border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+            border-left: 12px solid #bdc3c7;
+        }
+
+        /* Çift Yönlü Ok Ucu (Sol) */
+        .pointer-left::before {
+            content: ''; position: absolute; left: -8px; top: -6px;
+            border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+            border-right: 12px solid #bdc3c7;
+        }
+
+        /* Dairesel Bağlantı Göstergesi */
+        .circular-link {
+            border-top: 2px dashed #e74c3c;
+            border-left: 2px dashed #e74c3c;
+            border-right: 2px dashed #e74c3c;
+            height: 40px;
+            position: absolute;
+            top: -45px; left: 30px; right: 30px;
+            border-radius: 10px 10px 0 0;
+            z-index: 0;
+        }
+        .circular-label {
+            position: absolute; top: -65px; left: 50%; transform: translateX(-50%);
+            font-size: 0.8rem; color: #e74c3c; font-weight: bold; background: #fff; padding: 0 5px;
+        }
+
+        /* Animasyonlar */
+        .active-node { border-color: #2ecc71; background: #d5f5e3; transform: scale(1.15); color: #27ae60; }
+        .bg-head { border-color: #3498db; color: #3498db; }
+        .bg-tail { border-color: #e67e22; color: #e67e22; }
+
+        .log-box { 
+            height: 150px; overflow-y: auto; background: #2c3e50; 
+            color: #00ff00; padding: 10px; font-family: monospace; 
+            border-radius: 10px; font-size: 0.9rem;
+        }
+        .controls-area { background: #fff; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="p-4">
+
+<div class="container">
+    <h2 class="mb-4 text-center text-secondary">Bağlı Liste Görselleştirici (Linked List)</h2>
+
+    <div class="controls-area mb-4">
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Liste Tipi:</label>
+                <select id="listType" class="form-select border-primary" onchange="changeListType()">
+                    <option value="singly">Tek Yönlü (Singly)</option>
+                    <option value="doubly">Çift Yönlü (Doubly)</option>
+                    <option value="circular">Dairesel (Circular)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Değer (Data):</label>
+                <input type="number" id="valInput" class="form-control" placeholder="Örn: 10">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Index:</label>
+                <input type="number" id="indexInput" class="form-control" placeholder="Örn: 2">
+            </div>
+        </div>
+
+        <div class="row g-2">
+            <div class="col-md-4 d-grid gap-2">
+                <button class="btn btn-primary" onclick="insertHead()">Başa Ekle (Head)</button>
+                <button class="btn btn-outline-danger" onclick="deleteHead()">Baştan Sil</button>
+            </div>
+            <div class="col-md-4 d-grid gap-2">
+                <button class="btn btn-success" onclick="insertTail()">Sona Ekle (Tail)</button>
+                <button class="btn btn-outline-danger" onclick="deleteTail()">Sondan Sil</button>
+            </div>
+            <div class="col-md-4 d-grid gap-2">
+                <button class="btn btn-warning text-white" onclick="insertIndex()">Index'e Ekle</button>
+                <button class="btn btn-outline-danger" onclick="deleteIndex()">Index'ten Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="position: relative;">
+        <div id="circular-line" class="circular-link d-none"><span class="circular-label">Next -> Head</span></div>
+        
+        <div id="canvas-area" class="mb-4 shadow-sm position-relative">
+            <div id="list-wrapper" class="d-flex align-items-center mx-auto"></div>
+        </div>
+    </div>
+
+    <h6>İşlem Günlüğü:</h6>
+    <div id="log" class="log-box">Sistem hazır...<br>Lütfen bir değer girin ve işlem seçin.</div>
+</div>
+
+<script>
+    // State (Durum) Yönetimi
+    let list = [];
+    const wrapper = document.getElementById('list-wrapper');
+    const log = document.getElementById('log');
+    const circularLine = document.getElementById('circular-line');
+
+    // Yardımcı: Log Yazdırma
+    function addLog(msg) {
+        const time = new Date().toLocaleTimeString();
+        log.innerHTML += `<div><span style="color:#888">[${time}]</span> ${msg}</div>`;
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // Yardımcı: Animasyonlu Bekleme
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // ---------------------------------------------------------
+    // RENDER FONKSİYONU (Görselleştirme Motoru)
+    // ---------------------------------------------------------
+    function render() {
+        wrapper.innerHTML = '';
+        const type = document.getElementById('listType').value;
+        const isDoubly = type === 'doubly';
+        const isCircular = type === 'circular';
+
+        // Circular çizgisini yönet
+        if (isCircular && list.length > 0) {
+            circularLine.classList.remove('d-none');
+        } else {
+            circularLine.classList.add('d-none');
+        }
+
+        list.forEach((val, i) => {
+            const wrapperDiv = document.createElement('div');
+            wrapperDiv.className = 'node-wrapper';
+            wrapperDiv.id = `node-wrapper-${i}`;
+
+            // Node Oluşturma
+            const node = document.createElement('div');
+            node.className = 'node';
+            node.innerText = val;
+            node.id = `node-${i}`;
+
+            // Head ve Tail renkleri
+            if (i === 0) node.classList.add('bg-head');
+            if (i === list.length - 1) node.classList.add('bg-tail');
+
+            // Küçük etiketler (Head/Tail)
+            if (i === 0) {
+                const badge = document.createElement('span');
+                badge.style = "position:absolute; top:-25px; font-size:10px; color:#3498db; font-weight:bold;";
+                badge.innerText = "HEAD";
+                node.appendChild(badge);
+            }
+            if (i === list.length - 1) {
+                const badge = document.createElement('span');
+                badge.style = "position:absolute; bottom:-25px; font-size:10px; color:#e67e22; font-weight:bold;";
+                badge.innerText = "TAIL";
+                node.appendChild(badge);
+            }
+
+            wrapperDiv.appendChild(node);
+
+            // Pointer (Oklar) Oluşturma
+            if (i < list.length - 1) {
+                const pointer = document.createElement('div');
+                pointer.className = 'pointer pointer-right'; // Varsayılan sağ ok
+                
+                if (isDoubly) {
+                    pointer.classList.add('pointer-left'); // Çift yönlü ise sol ok da ekle
+                }
+                wrapperDiv.appendChild(pointer);
+            } else if (isCircular && list.length > 1) {
+                // Circular için son elemente görsel bir ok koymak yerine yukarıdaki dashed border'ı kullanıyoruz.
+                // Ancak Doubly Circular ise son elemandan başa dönüşü göstermek için küçük bir ok daha eklenebilir.
+            }
+
+            wrapper.appendChild(wrapperDiv);
+        });
+    }
+
+    // ---------------------------------------------------------
+    // LİSTE OPERASYONLARI
+    // ---------------------------------------------------------
+
+    // 1. BAŞA EKLEME (Insert Head)
+    async function insertHead() {
+        const val = document.getElementById('valInput').value;
+        if (!val) { addLog("Hata: Değer giriniz."); return; }
+
+        addLog(`İşlem: Başa Ekle (${val})`);
+        list.unshift(val); // JS Array unshift = Prepend
+        
+        render();
+        highlightNode(0, "Yeni düğüm başa eklendi.");
+        updatePointersLog("Head");
+    }
+
+    // 2. SONA EKLEME (Insert Tail)
+    async function insertTail() {
+        const val = document.getElementById('valInput').value;
+        if (!val) { addLog("Hata: Değer giriniz."); return; }
+
+        addLog(`İşlem: Sona Ekle (${val})`);
+        list.push(val); // JS Array push = Append
+
+        render();
+        highlightNode(list.length - 1, "Yeni düğüm sona eklendi.");
+        
+        const type = document.getElementById('listType').value;
+        if(type === 'circular') addLog("Detay: Tail'in 'Next' pointer'ı Head'i gösterecek şekilde güncellendi.");
+    }
+
+    // 3. INDEX'E EKLEME (Insert at Index)
+    async function insertIndex() {
+        const val = document.getElementById('valInput').value;
+        const index = parseInt(document.getElementById('indexInput').value);
+
+        if (!val || isNaN(index)) { addLog("Hata: Değer ve Index giriniz."); return; }
+        if (index < 0 || index > list.length) { addLog("Hata: Geçersiz Index."); return; }
+
+        addLog(`İşlem: Index ${index}'e Ekle (${val})`);
+        
+        // Animasyon: Traverse simülasyonu
+        for(let i=0; i<index; i++) {
+            highlightNode(i);
+            await sleep(300);
+        }
+
+        list.splice(index, 0, val); // Belirtilen indexe ekle
+        render();
+        highlightNode(index, `${index}. indexe düğüm yerleştirildi.`);
+        addLog(`Detay: Önceki ve sonraki düğümlerin pointerları güncellendi.`);
+    }
+
+    // 4. BAŞTAN SİLME (Delete Head)
+    async function deleteHead() {
+        if (list.length === 0) { addLog("Hata: Liste boş."); return; }
+
+        addLog("İşlem: Baştan Sil");
+        highlightNode(0);
+        await sleep(400);
+
+        const removed = list.shift(); // Remove first
+        render();
+        addLog(`Sonuç: ${removed} değeri bellekten silindi. Yeni Head güncellendi.`);
+    }
+
+    // 5. SONDAN SİLME (Delete Tail)
+    async function deleteTail() {
+        if (list.length === 0) { addLog("Hata: Liste boş."); return; }
+
+        addLog("İşlem: Sondan Sil");
+        
+        // Traverse to end visualization
+        if (list.length > 1) {
+            addLog("Detay: Sona kadar gidiliyor...");
+            // Basitlik için sadece sonuncuyu yakalım
+            highlightNode(list.length - 1); 
+            await sleep(400);
+        }
+
+        const removed = list.pop(); // Remove last
+        render();
+        addLog(`Sonuç: ${removed} değeri silindi. Tail pointer geri çekildi.`);
+    }
+
+    // 6. INDEX'TEN SİLME (Delete at Index)
+    async function deleteIndex() {
+        const index = parseInt(document.getElementById('indexInput').value);
+
+        if (list.length === 0) { addLog("Hata: Liste boş."); return; }
+        if (isNaN(index) || index < 0 || index >= list.length) { addLog("Hata: Geçersiz Index."); return; }
+
+        addLog(`İşlem: Index ${index}'ten Sil`);
+
+        // Traverse
+        for(let i=0; i<=index; i++) {
+            highlightNode(i);
+            await sleep(300);
+        }
+
+        const removed = list.splice(index, 1);
+        render();
+        addLog(`Sonuç: Index ${index} (${removed}) silindi. Bağlantılar onarıldı.`);
+    }
+
+    // ---------------------------------------------------------
+    // YARDIMCI FONKSİYONLAR
+    // ---------------------------------------------------------
+    
+    function highlightNode(index, msg = null) {
+        const node = document.getElementById(`node-${index}`);
+        if (node) {
+            node.classList.add('active-node');
+            setTimeout(() => node.classList.remove('active-node'), 600);
+        }
+        if (msg) addLog(msg);
+    }
+
+    function changeListType() {
+        const type = document.getElementById('listType').value;
+        addLog(`--- Mod Değiştirildi: ${type.toUpperCase()} LINKED LIST ---`);
+        render();
+    }
+
+    function updatePointersLog(opType) {
+        const type = document.getElementById('listType').value;
+        if (type === 'doubly') {
+            addLog("Detay: 'Next' ve 'Prev' pointerları güncellendi.");
+        } else if (type === 'circular') {
+            addLog("Detay: Dairesel döngü bütünlüğü korundu.");
+        } else {
+            addLog("Detay: 'Next' pointer güncellendi.");
+        }
+    }
+
+    // Başlangıç
+    render();
+
+</script>
+</body>
+</html>

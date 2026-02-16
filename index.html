@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSAlgo Visualizer - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #2c3e50; --accent: #4a90e2; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; }
+        .hero { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; padding: 60px 0; margin-bottom: 40px; }
+        .topic-card { 
+            border: none; border-radius: 15px; transition: 0.3s; 
+            height: 100%; cursor: pointer; background: white; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+        }
+        .topic-card:hover { transform: translateY(-10px); box-shadow: 0 12px 20px rgba(0,0,0,0.1); }
+        .icon-box { 
+            height: 100px; display: flex; align-items: center; justify-content: center; 
+            font-size: 3rem; border-radius: 15px 15px 0 0; color: white;
+        }
+        .bg-structure { background: #2ecc71; }
+        .bg-sort { background: #e67e22; }
+        .bg-search { background: #3498db; }
+        a { text-decoration: none; color: inherit; }
+    </style>
+</head>
+<body>
+
+<div class="hero text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold">DSAlgo Visualizer</h1>
+        <p class="lead">Interactive Learning Platform for Computer Engineering Students</p>
+    </div>
+</div>
+
+<div class="container pb-5">
+    <div class="row g-4">
+        <div class="col-md-4">
+            <a href="templates/linkedlist.html">
+                <div class="topic-card">
+                    <div class="icon-box bg-structure"><i class="fas fa-link"></i></div>
+                    <div class="card-body text-center">
+                        <h5 class="fw-bold">Linked Lists</h5>
+                        <p class="text-muted small">Singly, Doubly, and Circular. Visualize pointer updates in real-time.</p>
+                        <span class="badge bg-light text-dark border">Data Structure</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="templates/tree.html">
+                <div class="topic-card">
+                    <div class="icon-box bg-structure"><i class="fas fa-tree"></i></div>
+                    <div class="card-body text-center">
+                        <h5 class="fw-bold">Trees (BST & AVL)</h5>
+                        <p class="text-muted small">Visualize insertion, searching, and complex AVL rotations.</p>
+                        <span class="badge bg-light text-dark border">Data Structure</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="templates/sort.html">
+                <div class="topic-card">
+                    <div class="icon-box bg-sort"><i class="fas fa-sort-amount-down"></i></div>
+                    <div class="card-body text-center">
+                        <h5 class="fw-bold">Sorting Algorithms</h5>
+                        <p class="text-muted small">Bubble, Quick, and Selection sort animations with speed control.</p>
+                        <span class="badge bg-light text-dark border">Algorithm</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="templates/search.html">
+                <div class="topic-card">
+                    <div class="icon-box bg-search"><i class="fas fa-search"></i></div>
+                    <div class="card-body text-center">
+                        <h5 class="fw-bold">Searching</h5>
+                        <p class="text-muted small">Linear vs Binary search visual flow on dynamic datasets.</p>
+                        <span class="badge bg-light text-dark border">Algorithm</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
